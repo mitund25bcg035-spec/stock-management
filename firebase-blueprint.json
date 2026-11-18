@@ -1,0 +1,157 @@
+{
+  "entities": {
+    "WorkspaceProfile": {
+      "title": "WorkspaceProfile",
+      "description": "User workspace configuration and operational preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 254 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "organizationName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "currency": { "type": "string", "enum": ["USD", "EUR", "GBP"] },
+        "lowStockMultiplier": { "type": "number" },
+        "defaultWarehouseId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "seeded": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "organizationName", "currency", "lowStockMultiplier", "defaultWarehouseId", "seeded", "createdAt", "updatedAt"]
+    },
+    "SkuItem": {
+      "title": "SkuItem",
+      "description": "Tracked inventory SKU record with stock thresholds, valuation, and warehouse assignment.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "code": { "type": "string", "minLength": 2, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "category": { "type": "string", "minLength": 2, "maxLength": 48 },
+        "warehouseId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "warehouseName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "binLocation": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "quantity": { "type": "number" },
+        "reorderPoint": { "type": "number" },
+        "unitCost": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "supplierId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "supplierName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "lotNumber": { "type": "string", "minLength": 2, "maxLength": 48 },
+        "imageUrl": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "code", "name", "category", "warehouseId", "warehouseName", "binLocation", "quantity", "reorderPoint", "unitCost", "unitPrice", "supplierId", "supplierName", "lotNumber", "createdAt", "updatedAt"]
+    },
+    "WarehouseHub": {
+      "title": "WarehouseHub",
+      "description": "Fulfillment hub or regional distribution warehouse.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "code": { "type": "string", "minLength": 2, "maxLength": 24 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "region": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "address": { "type": "string", "minLength": 4, "maxLength": 160 },
+        "capacityUnits": { "type": "number" },
+        "managerName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "status": { "type": "string", "enum": ["operational", "congested", "maintenance"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "code", "name", "region", "address", "capacityUnits", "managerName", "status", "createdAt", "updatedAt"]
+    },
+    "StockMovement": {
+      "title": "StockMovement",
+      "description": "Immutable stock movement audit entry.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "skuId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "skuCode": { "type": "string", "minLength": 2, "maxLength": 32 },
+        "skuName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "type": { "type": "string", "enum": ["inbound", "outbound", "transfer", "adjustment"] },
+        "quantityDelta": { "type": "number" },
+        "previousQty": { "type": "number" },
+        "newQty": { "type": "number" },
+        "warehouseId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "warehouseName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "targetWarehouseName": { "type": "string", "maxLength": 80 },
+        "referenceCode": { "type": "string", "minLength": 2, "maxLength": 48 },
+        "notes": { "type": "string", "maxLength": 280 },
+        "operatorName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "skuId", "skuCode", "skuName", "type", "quantityDelta", "previousQty", "newQty", "warehouseId", "warehouseName", "referenceCode", "operatorName", "createdAt"]
+    },
+    "PurchaseOrder": {
+      "title": "PurchaseOrder",
+      "description": "Inbound purchase order or outbound fulfillment dispatch order.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "orderNumber": { "type": "string", "minLength": 3, "maxLength": 32 },
+        "direction": { "type": "string", "enum": ["inbound", "outbound"] },
+        "partnerName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "supplierId": { "type": "string", "maxLength": 64 },
+        "warehouseId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "warehouseName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "skuId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "skuCode": { "type": "string", "minLength": 2, "maxLength": 32 },
+        "skuName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "quantity": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "ordered", "in_transit", "received", "cancelled"] },
+        "etaDate": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "orderNumber", "direction", "partnerName", "warehouseId", "warehouseName", "skuId", "skuCode", "skuName", "quantity", "totalAmount", "status", "etaDate", "createdAt", "updatedAt"]
+    },
+    "SupplierPartner": {
+      "title": "SupplierPartner",
+      "description": "Approved component supplier or logistics partner.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "code": { "type": "string", "minLength": 2, "maxLength": 24 },
+        "region": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "contactEmail": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "leadTimeDays": { "type": "number" },
+        "onTimeRate": { "type": "number" },
+        "activeCategory": { "type": "string", "minLength": 2, "maxLength": 48 },
+        "status": { "type": "string", "enum": ["active", "review"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "code", "region", "contactEmail", "leadTimeDays", "onTimeRate", "activeCategory", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/WorkspaceProfile" },
+      "description": "Owner-scoped workspace settings and profile."
+    },
+    "/users/{userId}/skus/{skuId}": {
+      "schema": { "$ref": "#/entities/SkuItem" },
+      "description": "Owner-scoped SKU inventory catalog items."
+    },
+    "/users/{userId}/warehouses/{warehouseId}": {
+      "schema": { "$ref": "#/entities/WarehouseHub" },
+      "description": "Owner-scoped warehouse distribution hubs."
+    },
+    "/users/{userId}/movements/{movementId}": {
+      "schema": { "$ref": "#/entities/StockMovement" },
+      "description": "Owner-scoped immutable stock movement ledger entries."
+    },
+    "/users/{userId}/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/PurchaseOrder" },
+      "description": "Owner-scoped purchase and fulfillment orders."
+    },
+    "/users/{userId}/suppliers/{supplierId}": {
+      "schema": { "$ref": "#/entities/SupplierPartner" },
+      "description": "Owner-scoped supplier directory."
+    }
+  }
+}

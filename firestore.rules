@@ -1,0 +1,320 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Security Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    // --- Validation Blueprints ---
+    function isValidWorkspaceProfile(data) {
+      return data.keys().hasAll([
+          'uid', 'email', 'organizationName', 'currency',
+          'lowStockMultiplier', 'defaultWarehouseId', 'seeded', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'organizationName', 'currency',
+          'lowStockMultiplier', 'defaultWarehouseId', 'seeded', 'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid == request.auth.uid
+        && isValidString(data.email, 3, 254)
+        && (!('displayName' in data) || isValidString(data.displayName, 1, 120))
+        && isValidString(data.organizationName, 1, 120)
+        && data.currency in ['USD', 'EUR', 'GBP']
+        && data.lowStockMultiplier is number && data.lowStockMultiplier >= 0.5 && data.lowStockMultiplier <= 5.0
+        && isValidString(data.defaultWarehouseId, 1, 64)
+        && data.seeded is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSku(data) {
+      return data.keys().hasAll([
+          'ownerId', 'code', 'name', 'category', 'warehouseId', 'warehouseName',
+          'binLocation', 'quantity', 'reorderPoint', 'unitCost', 'unitPrice',
+          'supplierId', 'supplierName', 'lotNumber', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'code', 'name', 'category', 'warehouseId', 'warehouseName',
+          'binLocation', 'quantity', 'reorderPoint', 'unitCost', 'unitPrice',
+          'supplierId', 'supplierName', 'lotNumber', 'imageUrl', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId == request.auth.uid
+        && isValidString(data.code, 2, 32) && data.code.matches('^[A-Z0-9\\-]+$')
+        && isValidString(data.name, 2, 120)
+        && isValidString(data.category, 2, 48)
+        && isValidString(data.warehouseId, 1, 64)
+        && isValidString(data.warehouseName, 2, 80)
+        && isValidString(data.binLocation, 1, 32)
+        && data.quantity is number && data.quantity >= 0 && data.quantity <= 10000000
+        && data.reorderPoint is number && data.reorderPoint >= 0 && data.reorderPoint <= 1000000
+        && data.unitCost is number && data.unitCost >= 0 && data.unitCost <= 1000000
+        && data.unitPrice is number && data.unitPrice >= 0 && data.unitPrice <= 1000000
+        && isValidString(data.supplierId, 1, 64)
+        && isValidString(data.supplierName, 2, 100)
+        && isValidString(data.lotNumber, 2, 48)
+        && (!('imageUrl' in data) || isValidString(data.imageUrl, 0, 300))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWarehouse(data) {
+      return data.keys().hasAll([
+          'ownerId', 'code', 'name', 'region', 'address',
+          'capacityUnits', 'managerName', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'code', 'name', 'region', 'address',
+          'capacityUnits', 'managerName', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId == request.auth.uid
+        && isValidString(data.code, 2, 24)
+        && isValidString(data.name, 2, 100)
+        && isValidString(data.region, 2, 64)
+        && isValidString(data.address, 4, 160)
+        && data.capacityUnits is number && data.capacityUnits >= 1 && data.capacityUnits <= 50000000
+        && isValidString(data.managerName, 2, 80)
+        && data.status in ['operational', 'congested', 'maintenance']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMovement(data) {
+      return data.keys().hasAll([
+          'ownerId', 'skuId', 'skuCode', 'skuName', 'type', 'quantityDelta',
+          'previousQty', 'newQty', 'warehouseId', 'warehouseName',
+          'referenceCode', 'operatorName', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'skuId', 'skuCode', 'skuName', 'type', 'quantityDelta',
+          'previousQty', 'newQty', 'warehouseId', 'warehouseName', 'targetWarehouseName',
+          'referenceCode', 'notes', 'operatorName', 'createdAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId == request.auth.uid
+        && isValidString(data.skuId, 1, 64)
+        && isValidString(data.skuCode, 2, 32)
+        && isValidString(data.skuName, 2, 120)
+        && data.type in ['inbound', 'outbound', 'transfer', 'adjustment']
+        && data.quantityDelta is number && data.quantityDelta >= -10000000 && data.quantityDelta <= 10000000
+        && data.previousQty is number && data.previousQty >= 0 && data.previousQty <= 10000000
+        && data.newQty is number && data.newQty >= 0 && data.newQty <= 10000000
+        && isValidString(data.warehouseId, 1, 64)
+        && isValidString(data.warehouseName, 2, 80)
+        && (!('targetWarehouseName' in data) || isValidString(data.targetWarehouseName, 0, 80))
+        && isValidString(data.referenceCode, 2, 48)
+        && (!('notes' in data) || isValidString(data.notes, 0, 280))
+        && isValidString(data.operatorName, 2, 80)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+          'ownerId', 'orderNumber', 'direction', 'partnerName', 'warehouseId',
+          'warehouseName', 'skuId', 'skuCode', 'skuName', 'quantity',
+          'totalAmount', 'status', 'etaDate', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'orderNumber', 'direction', 'partnerName', 'supplierId', 'warehouseId',
+          'warehouseName', 'skuId', 'skuCode', 'skuName', 'quantity',
+          'totalAmount', 'status', 'etaDate', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId == request.auth.uid
+        && isValidString(data.orderNumber, 3, 32)
+        && data.direction in ['inbound', 'outbound']
+        && isValidString(data.partnerName, 2, 100)
+        && (!('supplierId' in data) || isValidString(data.supplierId, 0, 64))
+        && isValidString(data.warehouseId, 1, 64)
+        && isValidString(data.warehouseName, 2, 80)
+        && isValidString(data.skuId, 1, 64)
+        && isValidString(data.skuCode, 2, 32)
+        && isValidString(data.skuName, 2, 120)
+        && data.quantity is number && data.quantity >= 1 && data.quantity <= 10000000
+        && data.totalAmount is number && data.totalAmount >= 0 && data.totalAmount <= 100000000
+        && data.status in ['draft', 'ordered', 'in_transit', 'received', 'cancelled']
+        && isValidString(data.etaDate, 4, 32)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSupplier(data) {
+      return data.keys().hasAll([
+          'ownerId', 'name', 'code', 'region', 'contactEmail',
+          'leadTimeDays', 'onTimeRate', 'activeCategory', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'name', 'code', 'region', 'contactEmail',
+          'leadTimeDays', 'onTimeRate', 'activeCategory', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId == request.auth.uid
+        && isValidString(data.name, 2, 100)
+        && isValidString(data.code, 2, 24)
+        && isValidString(data.region, 2, 64)
+        && isValidString(data.contactEmail, 3, 120)
+        && data.leadTimeDays is number && data.leadTimeDays >= 1 && data.leadTimeDays <= 365
+        && data.onTimeRate is number && data.onTimeRate >= 0 && data.onTimeRate <= 100
+        && isValidString(data.activeCategory, 2, 48)
+        && data.status in ['active', 'review']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Match Rules ---
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isVerified()
+        && isOwner(userId)
+        && isValidWorkspaceProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isVerified()
+        && isOwner(userId)
+        && isValidWorkspaceProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'organizationName', 'currency',
+          'lowStockMultiplier', 'defaultWarehouseId', 'seeded', 'updatedAt'
+        ]);
+      allow delete: if false;
+
+      match /skus/{skuId} {
+        allow get: if isValidId(userId) && isValidId(skuId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(skuId)
+          && isVerified() && isOwner(userId)
+          && isValidSku(incoming())
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(skuId)
+          && isVerified() && isOwner(userId)
+          && isValidSku(incoming())
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['quantity', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly([
+              'code', 'name', 'category', 'warehouseId', 'warehouseName',
+              'binLocation', 'quantity', 'reorderPoint', 'unitCost', 'unitPrice',
+              'supplierId', 'supplierName', 'lotNumber', 'imageUrl', 'updatedAt'
+            ])
+          );
+        allow delete: if isValidId(userId) && isValidId(skuId) && isVerified() && isOwner(userId);
+      }
+
+      match /warehouses/{warehouseId} {
+        allow get: if isValidId(userId) && isValidId(warehouseId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(warehouseId)
+          && isVerified() && isOwner(userId)
+          && isValidWarehouse(incoming())
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(warehouseId)
+          && isVerified() && isOwner(userId)
+          && isValidWarehouse(incoming())
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'code', 'name', 'region', 'address', 'capacityUnits', 'managerName', 'status', 'updatedAt'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(warehouseId) && isVerified() && isOwner(userId);
+      }
+
+      match /movements/{movementId} {
+        allow get: if isValidId(userId) && isValidId(movementId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(movementId)
+          && isVerified() && isOwner(userId)
+          && isValidMovement(incoming())
+          && incoming().createdAt == request.time;
+        allow update, delete: if false;
+      }
+
+      match /orders/{orderId} {
+        allow get: if isValidId(userId) && isValidId(orderId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(orderId)
+          && isVerified() && isOwner(userId)
+          && isValidOrder(incoming())
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(orderId)
+          && isVerified() && isOwner(userId)
+          && existing().status != 'received'
+          && existing().status != 'cancelled'
+          && isValidOrder(incoming())
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly([
+              'orderNumber', 'direction', 'partnerName', 'supplierId', 'warehouseId',
+              'warehouseName', 'skuId', 'skuCode', 'skuName', 'quantity',
+              'totalAmount', 'status', 'etaDate', 'updatedAt'
+            ])
+          );
+        allow delete: if isValidId(userId) && isValidId(orderId) && isVerified() && isOwner(userId);
+      }
+
+      match /suppliers/{supplierId} {
+        allow get: if isValidId(userId) && isValidId(supplierId) && isOwner(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(supplierId)
+          && isVerified() && isOwner(userId)
+          && isValidSupplier(incoming())
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(supplierId)
+          && isVerified() && isOwner(userId)
+          && isValidSupplier(incoming())
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'code', 'region', 'contactEmail', 'leadTimeDays',
+            'onTimeRate', 'activeCategory', 'status', 'updatedAt'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(supplierId) && isVerified() && isOwner(userId);
+      }
+    }
+  }
+}
